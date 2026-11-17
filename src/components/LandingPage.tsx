@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   UserCheck,
   ShieldCheck,
@@ -11,30 +11,58 @@ import {
   HelpCircle,
   CheckCircle,
   BookMarked,
+  BellRing,
+  X,
+  School,
+  Plus,
+  ChevronDown,
 } from 'lucide-react';
-import { Student, TeacherInfo, SubjectTeacherInfo } from '../types';
-import { DEFAULT_SUBJECT_TEACHERS } from '../services/dataStorage';
+import { Student, TeacherInfo, SubjectTeacherInfo, ClassRoomInfo } from '../types';
+import { DEFAULT_SUBJECT_TEACHERS, DataService } from '../services/dataStorage';
 
 interface Props {
+  classes: ClassRoomInfo[];
+  activeClassId: string;
   teacher: TeacherInfo;
   subjectTeachers: SubjectTeacherInfo[];
   students: Student[];
+  dataVersion?: number;
+  onSelectClass: (classId: string) => void;
+  onCreateClass: (input: {
+    className: string;
+    schoolYear: string;
+    teacherName: string;
+    teacherCode: string;
+    subject?: string;
+    phone?: string;
+    password?: string;
+  }) => ClassRoomInfo;
   onSelectTeacher: (code: string) => boolean;
   onSelectSubjectTeacher: (subjectTeacher: SubjectTeacherInfo, passwordEntered: string) => boolean;
   onSelectParent: (student: Student, passwordEntered: string) => boolean;
   onOpenGuide: () => void;
+  onTriggerHiddenAdmin?: () => void;
 }
 
 export const LandingPage: React.FC<Props> = ({
+  classes,
+  activeClassId,
   teacher,
   subjectTeachers,
   students,
+  dataVersion,
+  onSelectClass,
+  onCreateClass,
   onSelectTeacher,
   onSelectSubjectTeacher,
   onSelectParent,
   onOpenGuide,
+  onTriggerHiddenAdmin,
 }) => {
+  void dataVersion;
   const [selectedRole, setSelectedRole] = useState<'NONE' | 'TEACHER' | 'SUBJECT_TEACHER' | 'PARENT'>('NONE');
+  const [isParentPinnedBannerDismissed, setIsParentPinnedBannerDismissed] = useState(false);
+  const pinnedAnnouncementsCount = DataService.getAnnouncements().filter((a) => Boolean(a.isPinned)).length;
   const [teacherPasswordInput, setTeacherPasswordInput] = useState('');
   const [teacherError, setTeacherError] = useState('');
 
@@ -49,6 +77,119 @@ export const LandingPage: React.FC<Props> = ({
   const [parentError, setParentError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPasswordHint, setShowPasswordHint] = useState(false);
+
+  // Create new class modal & top-right class dropdown state
+  const [isClassMenuOpen, setIsClassMenuOpen] = useState(false);
+  const classMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isCreateClassOpen, setIsCreateClassOpen] = useState(false);
+  const [newClassName, setNewClassName] = useState('');
+  const [newSchoolYear, setNewSchoolYear] = useState('2025 - 2026');
+  const [newTeacherName, setNewTeacherName] = useState('');
+  const [newTeacherCode, setNewTeacherCode] = useState('');
+  const [newTeacherSubject, setNewTeacherSubject] = useState('Chủ nhiệm / Giáo viên');
+  const [newTeacherPhone, setNewTeacherPhone] = useState('');
+  const [newTeacherPassword, setNewTeacherPassword] = useState('123');
+  const [createClassError, setCreateClassError] = useState('');
+
+  // Secret 10-click logo trigger for hidden Admin portal
+  const logoClickCountRef = useRef(0);
+  const logoLastClickTimeRef = useRef(0);
+
+  const handleSecretLogoClick = () => {
+    if (selectedRole !== 'NONE') {
+      setSelectedRole('NONE');
+      setSelectedStudent(null);
+      return;
+    }
+    const now = Date.now();
+    if (now - logoLastClickTimeRef.current > 3500) {
+      logoClickCountRef.current = 1;
+    } else {
+      logoClickCountRef.current += 1;
+    }
+    logoLastClickTimeRef.current = now;
+
+    if (logoClickCountRef.current >= 10) {
+      logoClickCountRef.current = 0;
+      onTriggerHiddenAdmin?.();
+    }
+  };
+
+  useEffect(() => {
+    if (!isClassMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (classMenuRef.current && !classMenuRef.current.contains(e.target as Node)) {
+        setIsClassMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsClassMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isClassMenuOpen]);
+
+  const handleClassSwitch = (classId: string) => {
+    onSelectClass(classId);
+    setSelectedStudent(null);
+    setSearchQuery('');
+    setPasswordInput('');
+    setTeacherPasswordInput('');
+    setSubjectPasswordInput('');
+    setTeacherError('');
+    setSubjectError('');
+    setParentError('');
+    setIsParentPinnedBannerDismissed(false);
+  };
+
+  const handleCreateClassSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanClass = newClassName.trim();
+    const cleanTeacher = newTeacherName.trim();
+    if (!cleanClass) {
+      setCreateClassError('Vui lòng nhập tên lớp học (VD: Lớp 10A4).');
+      return;
+    }
+    if (!cleanTeacher) {
+      setCreateClassError('Vui lòng nhập tên Giáo viên chủ nhiệm phụ trách lớp.');
+      return;
+    }
+    if (classes.some((c) => c.className.trim().toLowerCase() === cleanClass.toLowerCase())) {
+      setCreateClassError(`Lớp "${cleanClass}" đã tồn tại trong danh sách.`);
+      return;
+    }
+
+    const generatedCode =
+      newTeacherCode.trim() ||
+      `GV${cleanClass.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || classes.length + 1}`;
+
+    onCreateClass({
+      className: cleanClass,
+      schoolYear: newSchoolYear.trim() || '2025 - 2026',
+      teacherName: cleanTeacher,
+      teacherCode: generatedCode,
+      subject: newTeacherSubject.trim() || 'Chủ nhiệm / Giáo viên',
+      phone: newTeacherPhone.trim() || '0900 000 000',
+      password: newTeacherPassword.trim() || '123',
+    });
+
+    setNewClassName('');
+    setNewTeacherName('');
+    setNewTeacherCode('');
+    setNewTeacherSubject('Chủ nhiệm / Giáo viên');
+    setNewTeacherPhone('');
+    setNewTeacherPassword('123');
+    setCreateClassError('');
+    setIsCreateClassOpen(false);
+    setSelectedStudent(null);
+    setIsParentPinnedBannerDismissed(false);
+  };
 
   const handleTeacherSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,14 +250,9 @@ export const LandingPage: React.FC<Props> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
           <button
             type="button"
-            onClick={() => {
-              if (selectedRole !== 'NONE') {
-                setSelectedRole('NONE');
-                setSelectedStudent(null);
-              }
-            }}
+            onClick={handleSecretLogoClick}
             className={`flex items-center gap-3 min-w-0 text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-              selectedRole !== 'NONE' ? 'cursor-pointer group' : 'cursor-default'
+              selectedRole !== 'NONE' ? 'cursor-pointer group' : 'cursor-default select-none'
             }`}
             title={selectedRole !== 'NONE' ? 'Quay lại chọn vai trò' : undefined}
           >
@@ -126,7 +262,7 @@ export const LandingPage: React.FC<Props> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-lg text-slate-900 tracking-tight whitespace-nowrap">
-                  EduLink
+                  D2KN Edu
                 </span>
                 <span className="text-slate-300" aria-hidden="true">·</span>
                 <span className="text-xs font-bold text-indigo-700 whitespace-nowrap">
@@ -137,7 +273,99 @@ export const LandingPage: React.FC<Props> = ({
             </div>
           </button>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Compact Class Selector Dropdown at Top-Right Corner */}
+            <div className="relative" ref={classMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsClassMenuOpen((prev) => !prev)}
+                aria-expanded={isClassMenuOpen}
+                aria-haspopup="listbox"
+                className="min-h-[42px] inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl text-sm font-bold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/90 transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                title={`Đang chọn ${teacher.className} (GVCN: ${teacher.name})`}
+              >
+                <School className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="hidden md:inline text-indigo-600/80 font-semibold">Chọn lớp:</span>
+                <span className="max-w-[96px] sm:max-w-[130px] truncate">{teacher.className}</span>
+                <ChevronDown
+                  className={`w-4 h-4 text-indigo-600 shrink-0 transition-transform duration-150 ${
+                    isClassMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isClassMenuOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Danh sách lớp học"
+                  className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-2 z-50 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150"
+                >
+                  <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                      Chọn Lớp Học ({classes.length})
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium">GVCN riêng</span>
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto space-y-1 py-1">
+                    {classes.map((cls) => {
+                      const isActive = cls.id === activeClassId;
+                      const count = DataService.getStudentCountForClass(cls.id);
+                      return (
+                        <button
+                          key={cls.id}
+                          type="button"
+                          role="option"
+                          aria-selected={isActive}
+                          onClick={() => {
+                            handleClassSwitch(cls.id);
+                            setIsClassMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                            isActive
+                              ? 'bg-indigo-50 text-indigo-950 border border-indigo-200'
+                              : 'hover:bg-slate-50 text-slate-800 border border-transparent'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-bold text-sm truncate ${isActive ? 'text-indigo-800' : 'text-slate-900'}`}>
+                                {cls.className}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                                · {count} HS
+                              </span>
+                            </div>
+                            <p className={`text-xs truncate mt-0.5 ${isActive ? 'text-indigo-700 font-semibold' : 'text-slate-500'}`}>
+                              GVCN: {cls.teacherName}
+                            </p>
+                          </div>
+                          {isActive && (
+                            <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsClassMenuOpen(false);
+                        setCreateClassError('');
+                        setIsCreateClassOpen(true);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-indigo-700 hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Thêm Lớp &amp; GVCN Mới</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {selectedRole !== 'NONE' && (
               <button
                 type="button"
@@ -155,11 +383,11 @@ export const LandingPage: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenGuide}
-              className="min-h-[42px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#374151] hover:text-blue-700 hover:bg-blue-50/80 transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="min-h-[42px] inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl text-sm font-semibold text-[#374151] hover:text-blue-700 hover:bg-blue-50/80 transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
-              <span className="hidden sm:inline">Hướng dẫn sử dụng</span>
-              <span className="sm:hidden">Hướng dẫn</span>
+              <span className="hidden lg:inline">Hướng dẫn sử dụng</span>
+              <span className="lg:hidden hidden sm:inline">Hướng dẫn</span>
             </button>
           </div>
         </div>
@@ -173,7 +401,7 @@ export const LandingPage: React.FC<Props> = ({
             Năm học {teacher.schoolYear} · GVCN: {teacher.name} · {teacher.className}
           </p>
           <h1 className="text-[32px] leading-tight sm:text-4xl font-extrabold text-slate-900 tracking-tight text-balance">
-            Chào Mừng Bạn Đến Với EduLink
+            Chào Mừng Bạn Đến Với D2KN Edu
           </h1>
           <p className="text-[#374151] text-base sm:text-lg leading-relaxed">
             Chọn đúng vai trò bên dưới và nhập mật khẩu riêng để theo dõi học tập, điểm số và nhận xét minh bạch.
@@ -265,6 +493,7 @@ export const LandingPage: React.FC<Props> = ({
               onClick={() => {
                 setSelectedRole('PARENT');
                 setParentError('');
+                setIsParentPinnedBannerDismissed(false);
               }}
               className="order-1 md:order-3 group relative w-full text-left rounded-3xl p-6 sm:p-8 border-2 transition-all duration-200 flex flex-col justify-between overflow-hidden bg-gradient-to-b from-emerald-50/60 via-white to-white border-emerald-400/80 shadow-sm hover:shadow-xl hover:-translate-y-1.5 hover:border-emerald-600 active:scale-[0.99] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             >
@@ -273,9 +502,16 @@ export const LandingPage: React.FC<Props> = ({
                   <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center transition-colors duration-200 shrink-0 group-hover:bg-emerald-600 group-hover:text-white">
                     <ShieldCheck className="w-7 h-7" />
                   </div>
-                  <span className="text-[13px] sm:text-sm font-bold text-emerald-700">
-                    Phổ biến nhất
-                  </span>
+                  {pinnedAnnouncementsCount > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-extrabold">
+                      <BellRing className="w-3.5 h-3.5 text-orange-600 animate-pulse" />
+                      <span>{pinnedAnnouncementsCount} tin quan trọng</span>
+                    </span>
+                  ) : (
+                    <span className="text-[13px] sm:text-sm font-bold text-emerald-700">
+                      Phổ biến nhất
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -487,6 +723,33 @@ export const LandingPage: React.FC<Props> = ({
               </div>
             </div>
 
+            {pinnedAnnouncementsCount > 0 && !isParentPinnedBannerDismissed && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 flex items-start sm:items-center justify-between gap-3 text-sm text-amber-950 shadow-xs">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="p-2 rounded-xl bg-orange-600 text-white shrink-0">
+                    <BellRing className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-amber-950">
+                      Có {pinnedAnnouncementsCount} thông báo quan trọng được GVCN ghim!
+                    </p>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Vui lòng chọn học sinh bên dưới và đăng nhập để đọc chi tiết thông báo quan trọng từ giáo viên.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsParentPinnedBannerDismissed(true)}
+                  className="p-1.5 rounded-xl text-amber-700 hover:text-amber-950 hover:bg-amber-200/70 transition-colors cursor-pointer shrink-0"
+                  title="Tắt thông báo"
+                  aria-label="Tắt thông báo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-sm text-emerald-900">
               <div className="flex items-center gap-2.5">
                 <HelpCircle className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -637,12 +900,159 @@ export const LandingPage: React.FC<Props> = ({
             </div>
           </div>
         )}
+
+        {/* CREATE NEW CLASS MODAL */}
+        {isCreateClassOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <School className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">Thêm Lớp Học &amp; GVCN Mới</h3>
+                    <p className="text-xs text-slate-500">Mỗi lớp mới sẽ có Giáo viên chủ nhiệm và sổ liên lạc riêng</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateClassOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  aria-label="Đóng"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateClassSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tên lớp học <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newClassName}
+                      onChange={(e) => setNewClassName(e.target.value)}
+                      placeholder="VD: Lớp 10A4"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Năm học
+                    </label>
+                    <input
+                      type="text"
+                      value={newSchoolYear}
+                      onChange={(e) => setNewSchoolYear(e.target.value)}
+                      placeholder="2025 - 2026"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tên Giáo viên chủ nhiệm <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newTeacherName}
+                      onChange={(e) => setNewTeacherName(e.target.value)}
+                      placeholder="VD: Cô Phạm Lan Anh"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Mã GVCN
+                    </label>
+                    <input
+                      type="text"
+                      value={newTeacherCode}
+                      onChange={(e) => setNewTeacherCode(e.target.value)}
+                      placeholder="VD: GV10A4"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Bộ môn giảng dạy
+                    </label>
+                    <input
+                      type="text"
+                      value={newTeacherSubject}
+                      onChange={(e) => setNewTeacherSubject(e.target.value)}
+                      placeholder="Chủ nhiệm / Giáo viên Tiếng Anh"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Số điện thoại GVCN
+                    </label>
+                    <input
+                      type="text"
+                      value={newTeacherPhone}
+                      onChange={(e) => setNewTeacherPhone(e.target.value)}
+                      placeholder="09xx xxx xxx"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Mật khẩu đăng nhập GVCN
+                  </label>
+                  <input
+                    type="text"
+                    value={newTeacherPassword}
+                    onChange={(e) => setNewTeacherPassword(e.target.value)}
+                    placeholder="Mặc định: 123"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  />
+                </div>
+
+                {createClassError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-medium">
+                    {createClassError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateClassOpen(false)}
+                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tạo Lớp Mới</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer with extra bottom clearance so Netlify's bottom-right badge never overlaps content on mobile or desktop */}
       <footer className="bg-white border-t border-slate-200 pt-4 pb-16 sm:pb-14 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4">
-          EduLink - Nền Tảng Sổ Liên Lạc Điện Tử {teacher.className} © {new Date().getFullYear()}
+          D2KN Edu - Nền Tảng Sổ Liên Lạc Điện Tử {teacher.className} © {new Date().getFullYear()}
         </div>
       </footer>
     </div>

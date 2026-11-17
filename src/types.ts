@@ -1,4 +1,18 @@
-export type UserRole = 'GUEST' | 'TEACHER' | 'SUBJECT_TEACHER' | 'PARENT';
+export type UserRole = 'GUEST' | 'TEACHER' | 'SUBJECT_TEACHER' | 'PARENT' | 'ADMIN';
+
+export interface AdminWhitelistEntry {
+  email: string;
+  note?: string;
+  isSuperAdmin?: boolean;
+  addedAt: string;
+}
+
+export interface AdminSessionInfo {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string;
+}
 
 export interface SubjectTeacherInfo {
   name: string;
@@ -106,6 +120,15 @@ export interface TeacherInfo {
   password?: string;
 }
 
+export interface ClassRoomInfo {
+  id: string;
+  className: string;
+  schoolYear: string;
+  teacherName: string;
+  teacherCode: string;
+  isDefault?: boolean;
+}
+
 export interface AuthUserProfile {
   uid: string;
   email: string;
@@ -125,7 +148,8 @@ export type AuditTargetType =
   | 'SUBJECT_PASSWORD'
   | 'TEACHER_PASSWORD'
   | 'ANNOUNCEMENT'
-  | 'SCHEDULE';
+  | 'SCHEDULE'
+  | 'CLASS_ADMIN';
 
 export interface AuditLogEntry {
   id: string;

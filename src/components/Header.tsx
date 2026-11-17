@@ -8,13 +8,14 @@ import {
   BookMarked,
   ArrowLeft,
 } from 'lucide-react';
-import { UserRole, Student, TeacherInfo, SubjectTeacherInfo } from '../types';
+import { UserRole, Student, TeacherInfo, SubjectTeacherInfo, AdminSessionInfo } from '../types';
 
 interface Props {
   role: UserRole;
   teacher: TeacherInfo;
   activeSubjectTeacher?: SubjectTeacherInfo | null;
   activeStudent: Student | null;
+  activeAdmin?: AdminSessionInfo | null;
   onLogout: () => void;
   onOpenGuide: () => void;
   onResetData: () => void;
@@ -25,6 +26,7 @@ export const Header: React.FC<Props> = ({
   teacher,
   activeSubjectTeacher,
   activeStudent,
+  activeAdmin,
   onLogout,
   onOpenGuide,
   onResetData,
@@ -45,7 +47,7 @@ export const Header: React.FC<Props> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-lg text-slate-900 tracking-tight whitespace-nowrap group-hover:text-indigo-700 transition-colors">
-                EduLink
+                D2KN Edu
               </span>
               <span className="text-slate-300 hidden sm:inline" aria-hidden="true">·</span>
               <span className="text-xs font-semibold text-indigo-700 whitespace-nowrap">
@@ -81,6 +83,13 @@ export const Header: React.FC<Props> = ({
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-900 text-xs font-semibold whitespace-nowrap">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="max-w-[180px] truncate">PH: {activeStudent.name}</span>
+            </div>
+          )}
+
+          {role === 'ADMIN' && activeAdmin && (
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-amber-300 text-xs font-semibold whitespace-nowrap">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="max-w-[200px] truncate">Admin: {activeAdmin.email}</span>
             </div>
           )}
 

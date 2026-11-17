@@ -1,9 +1,51 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, UserCredential } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
+export const SCOPES = ['https://www.googleapis.com/auth/gmail.send'];
+
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+const databaseId = (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId || undefined;
+export const db = getFirestore(app, databaseId);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+SCOPES.forEach((scope) => googleProvider.addScope(scope));
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+// In-memory OAuth access token cache (never stored in localStorage/sessionStorage)
+let cachedGmailAccessToken: string | null = null;
+let cachedGmailSenderEmail: string | null = null;
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    cachedGmailAccessToken = null;
+    cachedGmailSenderEmail = null;
+  }
+});
+
+export function cacheOAuthTokenFromResult(result: UserCredential): string | null {
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const token = credential?.accessToken || null;
+  if (token) {
+    cachedGmailAccessToken = token;
+    cachedGmailSenderEmail = (result.user?.email || '').toLowerCase().trim() || null;
+  }
+  return token;
+}
+
+export function getCachedOAuthAccessToken(): string | null {
+  return cachedGmailAccessToken;
+}
+
+export function getCachedOAuthSenderEmail(): string | null {
+  return cachedGmailSenderEmail;
+}
+
+export function clearCachedOAuthAccessToken(): void {
+  cachedGmailAccessToken = null;
+  cachedGmailSenderEmail = null;
+}
 
 export enum OperationType {
   CREATE = 'create',

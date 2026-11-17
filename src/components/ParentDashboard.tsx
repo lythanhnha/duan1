@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useImperativeHandle } from 'react';
 import { 
   Calendar, Award, AlertTriangle, MessageSquare, BookOpen, 
   Send, Sparkles, CheckCircle2, User, HelpCircle, 
   ChevronRight, X, Info, TrendingUp, Clock, FileText, Megaphone,
-  Key, Lock, Eye, EyeOff, AlertCircle, ShieldCheck
+  Key, Lock, Eye, EyeOff, AlertCircle, ShieldCheck, Pin, BellRing
 } from 'lucide-react';
 import { Student, TeacherInfo, WeeklySchedule, SubjectScore, WeeklyReport, Announcement, WeakPointDetail } from '../types';
 import { DataService } from '../services/dataStorage';
+import { UnsavedChangesModal, UnsavedGuardHandle } from './UnsavedChangesModal';
 
 interface Props {
   student: Student;
   teacher: TeacherInfo;
+  dataVersion?: number;
+  guardRef?: React.RefObject<UnsavedGuardHandle | null>;
 }
 
-export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
+export const ParentDashboard: React.FC<Props> = ({ student, teacher, dataVersion, guardRef }) => {
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [selectedSubject, setSelectedSubject] = useState<SubjectScore | null>(null);
   const [feedbackInput, setFeedbackInput] = useState<string>('');
@@ -28,15 +31,45 @@ export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
   const [passwordError, setPasswordError] = useState<string>('');
   const [passwordSuccess, setPasswordSuccess] = useState<string>('');
 
-  // Load week-specific data
+  // Pending navigation confirmation modal
+  const [pendingAction, setPendingAction] = useState<{
+    message: string;
+    onSave: () => boolean | void;
+    onDiscard: () => void;
+    onProceed: () => void;
+  } | null>(null);
+
+  // Pinned important announcements alert modal state
+  const [dismissedPinnedIds, setDismissedPinnedIds] = useState<string[]>([]);
+  const [isPinnedModalForceOpen, setIsPinnedModalForceOpen] = useState<boolean>(false);
+
+  // Load week-specific data (dataVersion ensures fresh reads when realtime updates arrive)
+  void dataVersion;
   const schedule: WeeklySchedule = DataService.getWeeklySchedule(selectedWeek);
   const subjectScores: SubjectScore[] = DataService.getSubjectScores(student.id);
   const weeklyReport: WeeklyReport = DataService.getWeeklyReport(student.id, selectedWeek);
   const announcements: Announcement[] = DataService.getAnnouncements();
 
-  const handleSendFeedback = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackInput.trim()) return;
+  const pinnedAnnouncements = announcements.filter((ann) => Boolean(ann.isPinned));
+  const unreadPinnedAnnouncements = pinnedAnnouncements.filter((ann) => !dismissedPinnedIds.includes(ann.id));
+  const modalPinnedList =
+    unreadPinnedAnnouncements.length > 0
+      ? unreadPinnedAnnouncements
+      : isPinnedModalForceOpen
+      ? pinnedAnnouncements
+      : [];
+  const showPinnedAlertModal = modalPinnedList.length > 0;
+
+  const handleDismissPinnedModal = () => {
+    const idsToDismiss = modalPinnedList.map((a) => a.id);
+    setDismissedPinnedIds((prev) => Array.from(new Set([...prev, ...idsToDismiss])));
+    setIsPinnedModalForceOpen(false);
+  };
+
+  const isFeedbackDirty = feedbackInput.trim().length > 0;
+
+  const saveFeedbackNow = (): boolean => {
+    if (!feedbackInput.trim()) return false;
     DataService.saveParentFeedback(student.id, selectedWeek, feedbackInput.trim());
     DataService.recordAuditLog({
       actorRole: 'PARENT',
@@ -48,6 +81,33 @@ export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
     setFeedbackInput('');
     setIsFeedbackSent(true);
     setTimeout(() => setIsFeedbackSent(false), 3000);
+    return true;
+  };
+
+  useImperativeHandle(guardRef, () => ({
+    hasUnsavedChanges: () => isFeedbackDirty,
+    saveUnsavedChanges: () => saveFeedbackNow(),
+    getUnsavedDescription: () =>
+      `Bạn đã nhập nội dung phản hồi Tuần ${selectedWeek} cho giáo viên nhưng chưa bấm gửi. Bạn có muốn lưu & gửi trước khi rời khỏi không?`,
+  }));
+
+  const handleSendFeedback = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveFeedbackNow();
+  };
+
+  const handleWeekChangeAttempt = (nextWeek: number) => {
+    if (nextWeek === selectedWeek) return;
+    if (isFeedbackDirty) {
+      setPendingAction({
+        message: `Bạn đã nhập phản hồi cho Tuần ${selectedWeek} nhưng chưa bấm "Gửi Cho Giáo Viên". Bạn có muốn lưu & gửi trước khi chuyển sang Tuần ${nextWeek} không?`,
+        onSave: () => saveFeedbackNow(),
+        onDiscard: () => setFeedbackInput(''),
+        onProceed: () => setSelectedWeek(nextWeek),
+      });
+      return;
+    }
+    setSelectedWeek(nextWeek);
   };
 
   const handleChangePasswordSubmit = (e: React.FormEvent) => {
@@ -97,6 +157,29 @@ export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8 font-sans">
+      {/* Unsaved Changes Confirmation Modal */}
+      <UnsavedChangesModal
+        isOpen={pendingAction !== null}
+        title="Xác nhận lưu phản hồi"
+        message={pendingAction?.message}
+        saveLabel="Lưu & Tiếp tục"
+        onSaveAndContinue={() => {
+          if (!pendingAction) return;
+          const ok = pendingAction.onSave();
+          const proceed = pendingAction.onProceed;
+          setPendingAction(null);
+          if (ok !== false) proceed();
+        }}
+        onDiscardAndContinue={() => {
+          if (!pendingAction) return;
+          pendingAction.onDiscard();
+          const proceed = pendingAction.onProceed;
+          setPendingAction(null);
+          proceed();
+        }}
+        onCancel={() => setPendingAction(null)}
+      />
+
       {/* Student Profile Header */}
       <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-indigo-900 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
@@ -186,7 +269,7 @@ export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
             <span className="text-xs font-bold text-slate-600 pl-2 whitespace-nowrap">Chọn Tuần:</span>
             <select
               value={selectedWeek}
-              onChange={(e) => setSelectedWeek(Number(e.target.value))}
+              onChange={(e) => handleWeekChangeAttempt(Number(e.target.value))}
               className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-extrabold text-indigo-700 shadow-2xs focus:outline-none cursor-pointer"
             >
               {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
@@ -519,41 +602,159 @@ export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
 
           {/* CLASS ANNOUNCEMENTS FEED */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-2xs space-y-4">
-            <h2 className="font-extrabold text-slate-900 text-base flex items-center space-x-2">
-              <Megaphone className="w-5 h-5 text-indigo-600" />
-              <span>Bảng Tin Thông Báo Từ Giáo Viên</span>
-            </h2>
-
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-              {announcements.map((ann) => (
-                <div
-                  key={ann.id}
-                  className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
-                    ann.isPinned
-                      ? 'bg-indigo-50/40 border-indigo-200'
-                      : 'bg-slate-50/60 border-slate-200'
-                  }`}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-extrabold text-slate-900 text-base flex items-center space-x-2">
+                <Megaphone className="w-5 h-5 text-amber-600" />
+                <span>Bảng Tin Thông Báo Từ Giáo Viên</span>
+              </h2>
+              {pinnedAnnouncements.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsPinnedModalForceOpen(true)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-bold text-2xs">
-                      {ann.category}
-                    </span>
-                    <span className="text-2xs text-slate-400">{ann.date}</span>
-                  </div>
-                  <h3 className="font-bold text-slate-900 text-sm">{ann.title}</h3>
-                  <p className="text-slate-600 leading-relaxed">{ann.content}</p>
-                </div>
-              ))}
+                  <BellRing className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Xem {pinnedAnnouncements.length} tin ghim quan trọng</span>
+                </button>
+              )}
             </div>
+
+            {announcements.length === 0 ? (
+              <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
+                Hiện chưa có thông báo mới từ Giáo viên chủ nhiệm.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                {announcements.map((ann) => (
+                  <div
+                    key={ann.id}
+                    className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
+                      ann.isPinned
+                        ? 'bg-gradient-to-r from-amber-50/90 to-orange-50/50 border-2 border-amber-300 shadow-xs'
+                        : 'bg-slate-50/60 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {ann.isPinned && (
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-orange-600 text-white rounded font-bold text-2xs">
+                            <Pin className="w-3 h-3" />
+                            <span>Đã Ghim • Quan trọng</span>
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-bold text-2xs">
+                          {ann.category}
+                        </span>
+                      </div>
+                      <span className="text-2xs text-slate-400">{ann.date}</span>
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-sm">{ann.title}</h3>
+                    <p className="text-slate-700 leading-relaxed whitespace-pre-line">{ann.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
       </div>
 
+      {/* IMPORTANT PINNED ANNOUNCEMENT ALERT MODAL */}
+      {showPinnedAlertModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/65 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={handleDismissPinnedModal}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border-2 border-amber-300 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-5 text-white flex items-start justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-white/20 rounded-2xl border border-white/30 shrink-0">
+                  <BellRing className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-100 block">
+                    Thông báo quan trọng được ghim
+                  </span>
+                  <h3 className="font-extrabold text-lg sm:text-xl leading-snug">
+                    Có {modalPinnedList.length} thông báo quan trọng từ GVCN!
+                  </h3>
+                  <p className="text-xs text-amber-50 mt-0.5">
+                    {teacher.className} · GVCN: {teacher.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDismissPinnedModal}
+                className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/20 transition-colors cursor-pointer shrink-0"
+                title="Đóng thông báo"
+                aria-label="Đóng thông báo"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto bg-amber-50/30">
+              {modalPinnedList.map((ann) => (
+                <div
+                  key={ann.id}
+                  className="bg-white rounded-2xl p-4 sm:p-5 border-2 border-amber-200 shadow-xs space-y-2.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-lg bg-orange-600 text-white text-2xs font-bold">
+                        <Pin className="w-3 h-3" />
+                        <span>Đã Ghim</span>
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 text-2xs font-bold">
+                        {ann.category}
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-500 font-medium">{ann.date}</span>
+                  </div>
+                  <h4 className="font-extrabold text-slate-900 text-base sm:text-lg leading-snug">
+                    {ann.title}
+                  </h4>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                    {ann.content}
+                  </p>
+                  <div className="pt-1 text-[11px] text-slate-400 font-medium">
+                    Người đăng: {ann.author}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-4 bg-white border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-slate-500">
+                Bạn vẫn có thể xem lại các tin đã ghim ở mục <strong>Bảng Tin Thông Báo</strong> bên dưới.
+              </p>
+              <button
+                type="button"
+                onClick={handleDismissPinnedModal}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center space-x-2 cursor-pointer shrink-0"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Đã Đọc Xong • Tắt Thông Báo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DETAILED SUBJECT MODAL */}
       {selectedSubject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setSelectedSubject(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-2xs font-bold uppercase tracking-wider text-indigo-600">Chi Tiết Điểm Môn</span>
@@ -640,8 +841,34 @@ export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
 
       {/* CHANGE PASSWORD MODAL */}
       {isChangePasswordOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => {
+            if ((currentPassword || newPassword || confirmPassword) && !passwordSuccess) {
+              setPendingAction({
+                message: 'Bạn đang nhập thông tin đổi mật khẩu nhưng chưa cập nhật. Bạn có muốn lưu hoặc hủy bỏ thay đổi này?',
+                onSave: () => {
+                  const form = document.getElementById('parent-change-pass-form') as HTMLFormElement | null;
+                  form?.requestSubmit();
+                  return false;
+                },
+                onDiscard: () => {
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError('');
+                },
+                onProceed: () => setIsChangePasswordOpen(false),
+              });
+              return;
+            }
+            setIsChangePasswordOpen(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2.5">
                 <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
@@ -660,7 +887,7 @@ export const ParentDashboard: React.FC<Props> = ({ student, teacher }) => {
               </button>
             </div>
 
-            <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
+            <form id="parent-change-pass-form" onSubmit={handleChangePasswordSubmit} className="space-y-4">
               {passwordError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 font-medium flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />

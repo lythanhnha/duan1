@@ -1,6 +1,9 @@
-import { Student, TeacherInfo, SubjectTeacherInfo, WeeklySchedule, SubjectScore, WeeklyReport, Announcement, AuditLogEntry, AuditTargetType, UserRole } from '../types';
+import { Student, TeacherInfo, SubjectTeacherInfo, WeeklySchedule, SubjectScore, WeeklyReport, Announcement, AuditLogEntry, AuditTargetType, UserRole, ClassRoomInfo, AdminWhitelistEntry } from '../types';
 import { db, OperationType, handleFirestoreError, stripUndefined } from '../lib/firebase';
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot, query, orderBy, limit, where } from 'firebase/firestore';
+
+export const DEFAULT_CLASS_ID = 'class_10a1';
+export const SUPER_ADMIN_EMAIL = 'lythanhnha2k7@gmail.com';
 
 export const DEFAULT_TEACHER: TeacherInfo = {
   name: 'Thầy Lê Anh Tuấn',
@@ -12,6 +15,55 @@ export const DEFAULT_TEACHER: TeacherInfo = {
   subject: 'Chủ nhiệm / Giáo viên Toán',
   password: '123'
 };
+
+export const DEFAULT_TEACHER_10A2: TeacherInfo = {
+  name: 'Cô Nguyễn Thị Minh Tâm',
+  code: 'GV10A2',
+  className: 'Lớp 10A2',
+  schoolYear: '2025 - 2026',
+  email: 'minhtam.teacher@edu.vn',
+  phone: '0977 456 789',
+  subject: 'Chủ nhiệm / Giáo viên Ngữ Văn',
+  password: '123'
+};
+
+export const DEFAULT_TEACHER_10A3: TeacherInfo = {
+  name: 'Thầy Trần Hoàng Nam',
+  code: 'GV10A3',
+  className: 'Lớp 10A3',
+  schoolYear: '2025 - 2026',
+  email: 'hoangnam.teacher@edu.vn',
+  phone: '0912 345 678',
+  subject: 'Chủ nhiệm / Giáo viên Vật Lý',
+  password: '123'
+};
+
+export const DEFAULT_CLASSES: ClassRoomInfo[] = [
+  {
+    id: 'class_10a1',
+    className: DEFAULT_TEACHER.className,
+    schoolYear: DEFAULT_TEACHER.schoolYear,
+    teacherName: DEFAULT_TEACHER.name,
+    teacherCode: DEFAULT_TEACHER.code,
+    isDefault: true,
+  },
+  {
+    id: 'class_10a2',
+    className: DEFAULT_TEACHER_10A2.className,
+    schoolYear: DEFAULT_TEACHER_10A2.schoolYear,
+    teacherName: DEFAULT_TEACHER_10A2.name,
+    teacherCode: DEFAULT_TEACHER_10A2.code,
+    isDefault: true,
+  },
+  {
+    id: 'class_10a3',
+    className: DEFAULT_TEACHER_10A3.className,
+    schoolYear: DEFAULT_TEACHER_10A3.schoolYear,
+    teacherName: DEFAULT_TEACHER_10A3.name,
+    teacherCode: DEFAULT_TEACHER_10A3.code,
+    isDefault: true,
+  },
+];
 
 export const DEFAULT_SUBJECT_TEACHERS: SubjectTeacherInfo[] = [
   { subject: 'Toán Học', name: 'Thầy Lê Anh Tuấn', code: 'GV_TOAN', password: '123' },
@@ -67,6 +119,100 @@ export const DEFAULT_STUDENTS: Student[] = [
     avatar: '',
     gender: 'Nam',
     dob: '18/11/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  }
+];
+
+export const DEFAULT_STUDENTS_10A2: Student[] = [
+  {
+    id: 'hs01',
+    name: 'Trần Ngọc Bảo Trâm',
+    studentCode: '10A201',
+    avatar: '',
+    gender: 'Nữ',
+    dob: '14/03/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  },
+  {
+    id: 'hs02',
+    name: 'Phạm Gia Huy',
+    studentCode: '10A202',
+    avatar: '',
+    gender: 'Nam',
+    dob: '22/07/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  },
+  {
+    id: 'hs03',
+    name: 'Võ Hoàng Minh Quân',
+    studentCode: '10A203',
+    avatar: '',
+    gender: 'Nam',
+    dob: '09/10/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  },
+  {
+    id: 'hs04',
+    name: 'Đặng Thị Phương Thảo',
+    studentCode: '10A204',
+    avatar: '',
+    gender: 'Nữ',
+    dob: '19/05/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  }
+];
+
+export const DEFAULT_STUDENTS_10A3: Student[] = [
+  {
+    id: 'hs01',
+    name: 'Huỳnh Khánh Linh',
+    studentCode: '10A301',
+    avatar: '',
+    gender: 'Nữ',
+    dob: '02/06/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  },
+  {
+    id: 'hs02',
+    name: 'Bùi Quốc Bảo',
+    studentCode: '10A302',
+    avatar: '',
+    gender: 'Nam',
+    dob: '11/09/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  },
+  {
+    id: 'hs03',
+    name: 'Đỗ Minh Khôi',
+    studentCode: '10A303',
+    avatar: '',
+    gender: 'Nam',
+    dob: '28/12/2010',
+    parentPassword: '123',
+    conduct: 'Tốt',
+    overallGPA: 0.0,
+  },
+  {
+    id: 'hs04',
+    name: 'Ngô Thùy Dương',
+    studentCode: '10A304',
+    avatar: '',
+    gender: 'Nữ',
+    dob: '15/02/2010',
     parentPassword: '123',
     conduct: 'Tốt',
     overallGPA: 0.0,
@@ -201,6 +347,8 @@ export const DEFAULT_ANNOUNCEMENTS: Announcement[] = [];
 
 // Persistent State Storage Helper
 const STORAGE_KEYS = {
+  CLASSES: 'edulink_classes',
+  ACTIVE_CLASS_ID: 'edulink_active_class_id',
   TEACHER: 'edulink_teacher',
   SUBJECT_TEACHERS: 'edulink_subject_teachers',
   STUDENTS: 'edulink_students',
@@ -209,7 +357,8 @@ const STORAGE_KEYS = {
   SUBJECT_SCORES: 'edulink_subject_scores',
   WEEKLY_SCHEDULES: 'edulink_weekly_schedules',
   AUDIT_LOGS: 'edulink_audit_logs',
-  ACTIVE_ACTOR: 'edulink_active_actor'
+  ACTIVE_ACTOR: 'edulink_active_actor',
+  ADMIN_WHITELIST: 'edulink_admin_whitelist'
 };
 
 export interface ActiveActorInfo {
@@ -225,24 +374,154 @@ export function formatEditTimestamp(date: Date = new Date()): string {
 }
 
 export class DataService {
-  static getTeacher(): TeacherInfo {
-    const data = localStorage.getItem(STORAGE_KEYS.TEACHER);
+  private static activeClassIdMemory: string | null = null;
+
+  private static scopedKey(baseKey: string, classId: string = this.getActiveClassId()): string {
+    return classId === DEFAULT_CLASS_ID ? baseKey : `${baseKey}__${classId}`;
+  }
+
+  private static isDefaultCloudClass(classId: string = this.getActiveClassId()): boolean {
+    return classId === DEFAULT_CLASS_ID;
+  }
+
+  private static getDefaultTeacherForClass(classId: string): TeacherInfo {
+    if (classId === 'class_10a2') return { ...DEFAULT_TEACHER_10A2 };
+    if (classId === 'class_10a3') return { ...DEFAULT_TEACHER_10A3 };
+    return { ...DEFAULT_TEACHER };
+  }
+
+  private static getDefaultStudentsForClass(classId: string): Student[] {
+    if (classId === 'class_10a2') return DEFAULT_STUDENTS_10A2.map(s => ({ ...s, avatar: '' }));
+    if (classId === 'class_10a3') return DEFAULT_STUDENTS_10A3.map(s => ({ ...s, avatar: '' }));
+    return DEFAULT_STUDENTS.map(s => ({ ...s, avatar: '' }));
+  }
+
+  static getClasses(): ClassRoomInfo[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.CLASSES);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as ClassRoomInfo[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch {
+        // fallback to defaults
+      }
+    }
+    const seeded = DEFAULT_CLASSES.map(c => ({ ...c }));
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(seeded));
+    return seeded;
+  }
+
+  static getActiveClassId(): string {
+    if (this.activeClassIdMemory) {
+      return this.activeClassIdMemory;
+    }
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_CLASS_ID);
+    const classes = this.getClasses();
+    if (saved && classes.some(c => c.id === saved)) {
+      this.activeClassIdMemory = saved;
+      return saved;
+    }
+    this.activeClassIdMemory = classes[0]?.id || DEFAULT_CLASS_ID;
+    return this.activeClassIdMemory;
+  }
+
+  static setActiveClassId(classId: string): void {
+    const classes = this.getClasses();
+    const target = classes.some(c => c.id === classId) ? classId : DEFAULT_CLASS_ID;
+    this.activeClassIdMemory = target;
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_CLASS_ID, target);
+  }
+
+  static getStudentCountForClass(classId: string): number {
+    return this.getStudentsForClass(classId).length;
+  }
+
+  static createClass(input: {
+    className: string;
+    schoolYear: string;
+    teacherName: string;
+    teacherCode: string;
+    subject?: string;
+    phone?: string;
+    password?: string;
+  }): ClassRoomInfo {
+    const classes = this.getClasses();
+    const classId = `class_${Date.now()}`;
+    const cleanClassName = input.className.trim().slice(0, 64);
+    const cleanSchoolYear = input.schoolYear.trim().slice(0, 32) || '2025 - 2026';
+    const cleanTeacherName = input.teacherName.trim().slice(0, 120);
+    const cleanTeacherCode = input.teacherCode.trim().slice(0, 32) || `GV${classes.length + 1}`;
+    const cleanSubject = (input.subject || 'Giáo viên chủ nhiệm').trim().slice(0, 120);
+    const cleanPhone = (input.phone || '0900 000 000').trim().slice(0, 32);
+    const cleanPassword = (input.password || '123').trim().slice(0, 64) || '123';
+
+    const teacherInfo: TeacherInfo = {
+      name: cleanTeacherName,
+      code: cleanTeacherCode,
+      className: cleanClassName,
+      schoolYear: cleanSchoolYear,
+      email: `${cleanTeacherCode.toLowerCase()}@edu.vn`,
+      phone: cleanPhone,
+      subject: cleanSubject,
+      password: cleanPassword,
+    };
+
+    const classSlug = cleanClassName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || `L${classes.length + 1}`;
+    const starterStudent: Student = {
+      id: 'hs01',
+      name: 'Học Sinh Mẫu 01',
+      studentCode: `${classSlug}01`.slice(0, 32),
+      avatar: '',
+      gender: 'Nữ',
+      dob: '01/01/2010',
+      parentPassword: '123',
+      conduct: 'Tốt',
+      overallGPA: 0.0,
+    };
+
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.TEACHER, classId), JSON.stringify(teacherInfo));
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, classId), JSON.stringify([starterStudent]));
+    localStorage.setItem(
+      this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${starterStudent.id}`, classId),
+      JSON.stringify(getDefaultSubjectScores(starterStudent.id))
+    );
+
+    const newClassInfo: ClassRoomInfo = {
+      id: classId,
+      className: cleanClassName,
+      schoolYear: cleanSchoolYear,
+      teacherName: cleanTeacherName,
+      teacherCode: cleanTeacherCode,
+      isDefault: false,
+    };
+
+    const updatedClasses = [...classes, newClassInfo];
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(updatedClasses));
+    this.setActiveClassId(classId);
+    return newClassInfo;
+  }
+
+  static getTeacher(classId: string = this.getActiveClassId()): TeacherInfo {
+    const data = localStorage.getItem(this.scopedKey(STORAGE_KEYS.TEACHER, classId));
+    const fallback = this.getDefaultTeacherForClass(classId);
     if (data) {
       try {
         const parsed: TeacherInfo = JSON.parse(data);
-        if (parsed.name.includes('Hoàng Yến') || parsed.name !== 'Thầy Lê Anh Tuấn') {
-          localStorage.setItem(STORAGE_KEYS.TEACHER, JSON.stringify(DEFAULT_TEACHER));
-          return DEFAULT_TEACHER;
+        if (!parsed.name || parsed.name.includes('Hoàng Yến')) {
+          localStorage.setItem(this.scopedKey(STORAGE_KEYS.TEACHER, classId), JSON.stringify(fallback));
+          return fallback;
         }
         return {
           ...parsed,
           password: parsed.password || '123',
         };
       } catch (e) {
-        return DEFAULT_TEACHER;
+        return fallback;
       }
     }
-    return DEFAULT_TEACHER;
+    return fallback;
   }
 
   private static async writeDocSafe(collectionName: string, docId: string, data: unknown): Promise<void> {
@@ -258,9 +537,38 @@ export class DataService {
     }
   }
 
-  static saveTeacher(teacher: TeacherInfo): void {
-    localStorage.setItem(STORAGE_KEYS.TEACHER, JSON.stringify(teacher));
-    void this.writeDocSafe('settings', 'teacher', teacher);
+  private static async deleteDocSafe(collectionName: string, docId: string): Promise<void> {
+    const path = `${collectionName}/${docId}`;
+    try {
+      await deleteDoc(doc(db, collectionName, docId));
+    } catch (error) {
+      try {
+        handleFirestoreError(error, OperationType.DELETE, path);
+      } catch (loggedErr) {
+        console.warn('Firebase background delete error:', loggedErr);
+      }
+    }
+  }
+
+  static saveTeacher(teacher: TeacherInfo, classId: string = this.getActiveClassId()): void {
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.TEACHER, classId), JSON.stringify(teacher));
+    // Keep class registry synchronized
+    const classes = this.getClasses();
+    const updatedClasses = classes.map((c) =>
+      c.id === classId
+        ? {
+            ...c,
+            className: teacher.className,
+            schoolYear: teacher.schoolYear,
+            teacherName: teacher.name,
+            teacherCode: teacher.code,
+          }
+        : c
+    );
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(updatedClasses));
+    if (this.isDefaultCloudClass(classId)) {
+      void this.writeDocSafe('settings', 'teacher', teacher);
+    }
   }
 
   static updateTeacherPassword(newPassword: string): TeacherInfo {
@@ -273,32 +581,143 @@ export class DataService {
     return updated;
   }
 
-  static getStudents(): Student[] {
-    const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  static updateTeacherName(newName: string): TeacherInfo {
+    const current = this.getTeacher();
+    const cleanedName = newName.trim().slice(0, 120);
+    const updated: TeacherInfo = {
+      ...current,
+      name: cleanedName,
+    };
+    this.saveTeacher(updated);
+
+    const activeActor = this.getActiveActor();
+    if (activeActor && activeActor.uid === `teacher_${current.code}`) {
+      this.setActiveActor({
+        ...activeActor,
+        name: cleanedName,
+      });
+    }
+    return updated;
+  }
+
+  static getStudentsForClass(classId: string): Student[] {
+    const key = this.scopedKey(STORAGE_KEYS.STUDENTS, classId);
+    const fallback = this.getDefaultStudentsForClass(classId);
+    const data = localStorage.getItem(key);
     if (data) {
       try {
         const parsed: Student[] = JSON.parse(data);
-        if (
-          parsed.some(s => s.avatar !== '' || s.name === 'Nguyễn Văn Minh' || s.name === 'Trần Thị Mỹ Linh' || s.id === 'hs05' || s.id === 'hs06') ||
-          parsed.length !== 4
-        ) {
-          const cleaned = DEFAULT_STUDENTS.map(s => ({ ...s, avatar: '' }));
-          localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(cleaned));
-          return cleaned;
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          localStorage.setItem(key, JSON.stringify(fallback));
+          return fallback;
         }
-        return parsed.map(s => ({ ...s, avatar: '' }));
+        if (classId === DEFAULT_CLASS_ID && parsed.some(s => s.name === 'Nguyễn Văn Minh' || s.name === 'Trần Thị Mỹ Linh')) {
+          localStorage.setItem(key, JSON.stringify(fallback));
+          return fallback;
+        }
+        return parsed.map(s => ({ ...s, avatar: s.avatar || '' }));
       } catch (e) {
-        return DEFAULT_STUDENTS.map(s => ({ ...s, avatar: '' }));
+        return fallback;
       }
     }
-    return DEFAULT_STUDENTS.map(s => ({ ...s, avatar: '' }));
+    return fallback;
+  }
+
+  static getStudents(): Student[] {
+    return this.getStudentsForClass(this.getActiveClassId());
   }
 
   static saveStudents(students: Student[]): void {
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
-    students.forEach(student => {
-      void this.writeDocSafe('students', student.id, student);
-    });
+    const classId = this.getActiveClassId();
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, classId), JSON.stringify(students));
+    if (this.isDefaultCloudClass(classId)) {
+      students.forEach(student => {
+        void this.writeDocSafe('students', student.id, student);
+      });
+    }
+  }
+
+  static addStudent(input: {
+    name: string;
+    studentCode: string;
+    gender: 'Nam' | 'Nữ';
+    dob: string;
+    parentPassword: string;
+    conduct: 'Tốt' | 'Khá' | 'Trung bình';
+  }): Student {
+    const classId = this.getActiveClassId();
+    const existing = this.getStudents();
+    let index = existing.length + 1;
+    let candidateId = `hs${String(index).padStart(2, '0')}`;
+    while (existing.some(s => s.id === candidateId)) {
+      index += 1;
+      candidateId = `hs${String(index).padStart(2, '0')}`;
+    }
+
+    const newStudent: Student = {
+      id: candidateId,
+      name: input.name.trim().slice(0, 120),
+      studentCode: input.studentCode.trim().slice(0, 32),
+      avatar: '',
+      gender: input.gender,
+      dob: input.dob.trim().slice(0, 32) || '01/01/2010',
+      parentPassword: input.parentPassword.trim().slice(0, 64) || '123',
+      conduct: input.conduct,
+      overallGPA: 0.0,
+    };
+
+    const updatedStudents = [...existing, newStudent];
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, classId), JSON.stringify(updatedStudents));
+    if (this.isDefaultCloudClass(classId)) {
+      void this.writeDocSafe('students', newStudent.id, newStudent);
+    }
+
+    // Initialize subject scores so Subject Teacher & Grades sync immediately
+    const defaultScores = getDefaultSubjectScores(newStudent.id);
+    this.saveSubjectScores(newStudent.id, defaultScores);
+
+    // Initialize week 1 weekly report
+    const defaultReport = getDefaultWeeklyReports(newStudent.id, 1);
+    this.saveWeeklyReport(newStudent.id, 1, defaultReport, false);
+
+    return newStudent;
+  }
+
+  static deleteStudent(studentId: string): Student[] {
+    const classId = this.getActiveClassId();
+    const existing = this.getStudents();
+    const updatedStudents = existing.filter(s => s.id !== studentId);
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, classId), JSON.stringify(updatedStudents));
+
+    // Clean up local student-specific scores & weekly reports
+    localStorage.removeItem(this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${studentId}`, classId));
+    for (let w = 1; w <= 52; w++) {
+      localStorage.removeItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${studentId}_${w}`, classId));
+    }
+
+    if (this.isDefaultCloudClass(classId)) {
+      void this.deleteDocSafe('students', studentId);
+      void this.deleteDocSafe('subject_scores', studentId);
+      void this.deleteStudentWeeklyReportsFromFirebase(studentId);
+    }
+
+    return updatedStudents;
+  }
+
+  private static async deleteStudentWeeklyReportsFromFirebase(studentId: string): Promise<void> {
+    try {
+      const q = query(collection(db, 'weekly_reports'), where('studentId', '==', studentId));
+      const snap = await getDocs(q);
+      snap.forEach((d) => {
+        void this.deleteDocSafe('weekly_reports', d.id);
+      });
+    } catch (error) {
+      try {
+        handleFirestoreError(error, OperationType.DELETE, `weekly_reports?studentId=${studentId}`);
+      } catch (loggedErr) {
+        console.warn('Firebase weekly reports cleanup error:', loggedErr);
+      }
+    }
   }
 
   static updateStudentPassword(studentId: string, newPass: string): void {
@@ -308,15 +727,24 @@ export class DataService {
   }
 
   static getAnnouncements(): Announcement[] {
-    const data = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
-    return data ? JSON.parse(data) : DEFAULT_ANNOUNCEMENTS;
+    const data = localStorage.getItem(this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS));
+    const list: Announcement[] = data ? JSON.parse(data) : DEFAULT_ANNOUNCEMENTS;
+    if (!Array.isArray(list)) return [];
+    return [...list].sort((a, b) => {
+      const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
+      if (pinDiff !== 0) return pinDiff;
+      return (b.id || '').localeCompare(a.id || '');
+    });
   }
 
   static saveAnnouncements(announcements: Announcement[]): void {
-    localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(announcements));
-    announcements.forEach(ann => {
-      void this.writeDocSafe('announcements', ann.id, ann);
-    });
+    const classId = this.getActiveClassId();
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS, classId), JSON.stringify(announcements));
+    if (this.isDefaultCloudClass(classId)) {
+      announcements.forEach(ann => {
+        void this.writeDocSafe('announcements', ann.id, ann);
+      });
+    }
   }
 
   static addAnnouncement(title: string, content: string, category: Announcement['category'], isPinned: boolean = false): Announcement {
@@ -327,7 +755,7 @@ export class DataService {
       content,
       category,
       date: new Date().toLocaleDateString('vi-VN'),
-      author: DEFAULT_TEACHER.name,
+      author: this.getTeacher().name,
       isPinned
     };
     const updated = [newAnn, ...list];
@@ -335,30 +763,47 @@ export class DataService {
     return newAnn;
   }
 
+  static toggleAnnouncementPin(id: string): Announcement[] {
+    const list = this.getAnnouncements();
+    const updated = list.map((a) => (a.id === id ? { ...a, isPinned: !a.isPinned } : a));
+    this.saveAnnouncements(updated);
+    return this.getAnnouncements();
+  }
+
   static deleteAnnouncement(id: string): void {
+    const classId = this.getActiveClassId();
     const list = this.getAnnouncements();
     this.saveAnnouncements(list.filter(a => a.id !== id));
-    deleteDoc(doc(db, 'announcements', id)).catch((error) => {
-      try {
-        handleFirestoreError(error, OperationType.DELETE, `announcements/${id}`);
-      } catch (loggedErr) {
-        console.warn('Firebase delete error:', loggedErr);
-      }
-    });
+    if (this.isDefaultCloudClass(classId)) {
+      deleteDoc(doc(db, 'announcements', id)).catch((error) => {
+        try {
+          handleFirestoreError(error, OperationType.DELETE, `announcements/${id}`);
+        } catch (loggedErr) {
+          console.warn('Firebase delete error:', loggedErr);
+        }
+      });
+    }
   }
 
   static getWeeklySchedule(weekNum: number): WeeklySchedule {
-    const data = localStorage.getItem(`${STORAGE_KEYS.WEEKLY_SCHEDULES}_${weekNum}`);
+    const data = localStorage.getItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_SCHEDULES}_${weekNum}`));
     return data ? JSON.parse(data) : generateWeeklySchedule(weekNum);
   }
 
   static saveWeeklySchedule(weekNum: number, schedule: WeeklySchedule): void {
-    localStorage.setItem(`${STORAGE_KEYS.WEEKLY_SCHEDULES}_${weekNum}`, JSON.stringify(schedule));
-    void this.writeDocSafe('weekly_schedules', `week_${weekNum}`, schedule);
+    const classId = this.getActiveClassId();
+    localStorage.setItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_SCHEDULES}_${weekNum}`, classId), JSON.stringify(schedule));
+    if (this.isDefaultCloudClass(classId)) {
+      void this.writeDocSafe('weekly_schedules', `week_${weekNum}`, schedule);
+    }
   }
 
   static getSubjectTeachers(): SubjectTeacherInfo[] {
-    const data = localStorage.getItem(STORAGE_KEYS.SUBJECT_TEACHERS);
+    return this.getSubjectTeachersForClass(this.getActiveClassId());
+  }
+
+  static getSubjectTeachersForClass(classId: string): SubjectTeacherInfo[] {
+    const data = localStorage.getItem(this.scopedKey(STORAGE_KEYS.SUBJECT_TEACHERS, classId));
     if (data) {
       try {
         const parsed = JSON.parse(data) as SubjectTeacherInfo[];
@@ -376,8 +821,14 @@ export class DataService {
   }
 
   static saveSubjectTeachers(teachers: SubjectTeacherInfo[]): void {
-    localStorage.setItem(STORAGE_KEYS.SUBJECT_TEACHERS, JSON.stringify(teachers));
-    void this.writeDocSafe('settings', 'subject_teachers', { teachers });
+    this.saveSubjectTeachersForClass(this.getActiveClassId(), teachers);
+  }
+
+  static saveSubjectTeachersForClass(classId: string, teachers: SubjectTeacherInfo[]): void {
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.SUBJECT_TEACHERS, classId), JSON.stringify(teachers));
+    if (this.isDefaultCloudClass(classId)) {
+      void this.writeDocSafe('settings', 'subject_teachers', { teachers });
+    }
   }
 
   static updateSubjectTeacherPassword(subject: string, newPassword: string): SubjectTeacherInfo[] {
@@ -435,12 +886,16 @@ export class DataService {
         ? 'Phụ huynh học sinh'
         : fallbackRole === 'SUBJECT_TEACHER'
         ? 'Giáo viên bộ môn'
+        : fallbackRole === 'ADMIN'
+        ? 'Quản trị viên Hệ thống'
         : teacher.name;
     const defaultLabel =
       fallbackRole === 'PARENT'
         ? 'Phụ huynh'
         : fallbackRole === 'SUBJECT_TEACHER'
         ? 'GV Bộ Môn'
+        : fallbackRole === 'ADMIN'
+        ? 'Admin Hệ Thống'
         : `GVCN (${teacher.code})`;
 
     return {
@@ -452,7 +907,11 @@ export class DataService {
   }
 
   static getAuditLogs(): AuditLogEntry[] {
-    const data = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
+    return this.getAuditLogsForClass(this.getActiveClassId());
+  }
+
+  static getAuditLogsForClass(classId: string): AuditLogEntry[] {
+    const data = localStorage.getItem(this.scopedKey(STORAGE_KEYS.AUDIT_LOGS, classId));
     if (!data) return [];
     try {
       const parsed = JSON.parse(data) as AuditLogEntry[];
@@ -469,7 +928,9 @@ export class DataService {
     targetType: AuditTargetType;
     targetLabel: string;
     summary: string;
+    classIdOverride?: string;
   }): void {
+    const classId = params.classIdOverride || this.getActiveClassId();
     const actor = this.getCurrentActorStamp(params.actorRole);
 
     const now = new Date();
@@ -488,20 +949,34 @@ export class DataService {
       displayTime: formatEditTimestamp(now).slice(0, 64),
     };
 
-    const existing = this.getAuditLogs();
+    const existing = this.getAuditLogsForClass(classId);
     const updated = [entry, ...existing].slice(0, 200);
-    localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(updated));
-    void this.writeDocSafe('audit_logs', entry.id, entry);
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.AUDIT_LOGS, classId), JSON.stringify(updated));
+    if (this.isDefaultCloudClass(classId)) {
+      const cloudEntry: AuditLogEntry = {
+        ...entry,
+        actorRole: entry.actorRole === 'ADMIN' ? 'TEACHER' : entry.actorRole,
+        targetType: entry.targetType === 'CLASS_ADMIN' ? 'TEACHER_PASSWORD' : entry.targetType,
+      };
+      void this.writeDocSafe('audit_logs', entry.id, cloudEntry);
+    }
   }
 
   static getSubjectScores(studentId: string): SubjectScore[] {
-    const data = localStorage.getItem(`${STORAGE_KEYS.SUBJECT_SCORES}_${studentId}`);
+    return this.getSubjectScoresForClass(this.getActiveClassId(), studentId);
+  }
+
+  static getSubjectScoresForClass(classId: string, studentId: string): SubjectScore[] {
+    const data = localStorage.getItem(this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${studentId}`, classId));
     return data ? JSON.parse(data) : getDefaultSubjectScores(studentId);
   }
 
   static saveSubjectScores(studentId: string, scores: SubjectScore[]): void {
-    localStorage.setItem(`${STORAGE_KEYS.SUBJECT_SCORES}_${studentId}`, JSON.stringify(scores));
-    void this.writeDocSafe('subject_scores', studentId, { studentId, scores });
+    const classId = this.getActiveClassId();
+    localStorage.setItem(this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${studentId}`, classId), JSON.stringify(scores));
+    if (this.isDefaultCloudClass(classId)) {
+      void this.writeDocSafe('subject_scores', studentId, { studentId, scores });
+    }
   }
 
   static saveSingleSubjectScore(studentId: string, updatedSubjectScore: SubjectScore): SubjectScore {
@@ -524,19 +999,26 @@ export class DataService {
   }
 
   static getWeeklyReport(studentId: string, weekNum: number): WeeklyReport {
-    const data = localStorage.getItem(`${STORAGE_KEYS.WEEKLY_REPORTS}_${studentId}_${weekNum}`);
+    return this.getWeeklyReportForClass(this.getActiveClassId(), studentId, weekNum);
+  }
+
+  static getWeeklyReportForClass(classId: string, studentId: string, weekNum: number): WeeklyReport {
+    const data = localStorage.getItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${studentId}_${weekNum}`, classId));
     return data ? JSON.parse(data) : getDefaultWeeklyReports(studentId, weekNum);
   }
 
   static saveWeeklyReport(studentId: string, weekNum: number, report: WeeklyReport, stampActor: boolean = true): WeeklyReport {
+    const classId = this.getActiveClassId();
     const actor = stampActor ? this.getCurrentActorStamp() : null;
     const stampedReport: WeeklyReport = {
       ...report,
       updatedAt: (actor?.displayTime || report.updatedAt || formatEditTimestamp()).slice(0, 64),
       ...(actor ? { updatedByEmail: actor.email, updatedByName: actor.name } : {}),
     };
-    localStorage.setItem(`${STORAGE_KEYS.WEEKLY_REPORTS}_${studentId}_${weekNum}`, JSON.stringify(stampedReport));
-    void this.writeDocSafe('weekly_reports', `${studentId}_w${weekNum}`, stampedReport);
+    localStorage.setItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${studentId}_${weekNum}`, classId), JSON.stringify(stampedReport));
+    if (this.isDefaultCloudClass(classId)) {
+      void this.writeDocSafe('weekly_reports', `${studentId}_w${weekNum}`, stampedReport);
+    }
     return stampedReport;
   }
 
@@ -556,6 +1038,7 @@ export class DataService {
           const fetchedStudents: Student[] = [];
           snap.forEach((d) => fetchedStudents.push(d.data() as Student));
           if (fetchedStudents.length > 0) {
+            fetchedStudents.sort((a, b) => (a.studentCode || a.id).localeCompare(b.studentCode || b.id, 'vi'));
             localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(fetchedStudents));
             onDataUpdated();
           }
@@ -657,7 +1140,9 @@ export class DataService {
       doc(db, 'settings', 'teacher'),
       (snap) => {
         if (snap.exists()) {
-          localStorage.setItem(STORAGE_KEYS.TEACHER, JSON.stringify(snap.data()));
+          const teacherData = snap.data() as TeacherInfo;
+          localStorage.setItem(STORAGE_KEYS.TEACHER, JSON.stringify(teacherData));
+          this.syncDefaultClassInRegistry(teacherData);
           onDataUpdated();
         }
       },
@@ -719,6 +1204,22 @@ export class DataService {
     };
   }
 
+  private static syncDefaultClassInRegistry(teacherData: TeacherInfo): void {
+    const classes = this.getClasses();
+    const updated = classes.map((c) =>
+      c.id === DEFAULT_CLASS_ID
+        ? {
+            ...c,
+            className: teacherData.className || c.className,
+            schoolYear: teacherData.schoolYear || c.schoolYear,
+            teacherName: teacherData.name || c.teacherName,
+            teacherCode: teacherData.code || c.teacherCode,
+          }
+        : c
+    );
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(updated));
+  }
+
   static async syncFromFirebase(): Promise<void> {
     try {
       // 1. Fetch Students
@@ -727,6 +1228,7 @@ export class DataService {
         const fetchedStudents: Student[] = [];
         studentsSnap.forEach(d => fetchedStudents.push(d.data() as Student));
         if (fetchedStudents.length > 0) {
+          fetchedStudents.sort((a, b) => (a.studentCode || a.id).localeCompare(b.studentCode || b.id, 'vi'));
           localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(fetchedStudents));
         }
       } else {
@@ -789,7 +1291,9 @@ export class DataService {
       // 6. Fetch Teacher info
       const teacherSnap = await getDoc(doc(db, 'settings', 'teacher'));
       if (teacherSnap.exists()) {
-        localStorage.setItem(STORAGE_KEYS.TEACHER, JSON.stringify(teacherSnap.data()));
+        const teacherData = teacherSnap.data() as TeacherInfo;
+        localStorage.setItem(STORAGE_KEYS.TEACHER, JSON.stringify(teacherData));
+        this.syncDefaultClassInRegistry(teacherData);
       } else {
         void this.writeDocSafe('settings', 'teacher', DEFAULT_TEACHER);
       }
@@ -819,7 +1323,505 @@ export class DataService {
     }
   }
 
+  // ================= ADMIN WHITELIST & CROSS-CLASS MANAGEMENT =================
+
+  static getAdminWhitelist(): AdminWhitelistEntry[] {
+    const fallback: AdminWhitelistEntry[] = [
+      {
+        email: SUPER_ADMIN_EMAIL,
+        note: 'Super Admin hệ thống',
+        isSuperAdmin: true,
+        addedAt: 'Mặc định',
+      },
+    ];
+    const raw = localStorage.getItem(STORAGE_KEYS.ADMIN_WHITELIST);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.ADMIN_WHITELIST, JSON.stringify(fallback));
+      return fallback;
+    }
+    try {
+      const parsed = JSON.parse(raw) as AdminWhitelistEntry[];
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        localStorage.setItem(STORAGE_KEYS.ADMIN_WHITELIST, JSON.stringify(fallback));
+        return fallback;
+      }
+      const hasSuper = parsed.some((e) => e.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase());
+      if (!hasSuper) {
+        const merged = [fallback[0], ...parsed];
+        localStorage.setItem(STORAGE_KEYS.ADMIN_WHITELIST, JSON.stringify(merged));
+        return merged;
+      }
+      return parsed.map((e) => ({
+        ...e,
+        email: e.email.toLowerCase().trim(),
+        isSuperAdmin: e.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase(),
+      }));
+    } catch {
+      return fallback;
+    }
+  }
+
+  static isAdminWhitelisted(email?: string | null): boolean {
+    if (!email) return false;
+    const normalized = email.toLowerCase().trim();
+    return this.getAdminWhitelist().some((entry) => entry.email.toLowerCase().trim() === normalized);
+  }
+
+  static addAdminWhitelistEmail(email: string, note: string = ''): AdminWhitelistEntry[] {
+    const normalized = email.toLowerCase().trim().slice(0, 254);
+    const list = this.getAdminWhitelist();
+    if (!normalized || list.some((e) => e.email.toLowerCase() === normalized)) {
+      return list;
+    }
+    const updated: AdminWhitelistEntry[] = [
+      ...list,
+      {
+        email: normalized,
+        note: note.trim().slice(0, 120) || 'Quản trị viên',
+        isSuperAdmin: normalized === SUPER_ADMIN_EMAIL.toLowerCase(),
+        addedAt: formatEditTimestamp(),
+      },
+    ];
+    localStorage.setItem(STORAGE_KEYS.ADMIN_WHITELIST, JSON.stringify(updated));
+    return updated;
+  }
+
+  static removeAdminWhitelistEmail(email: string): AdminWhitelistEntry[] {
+    const normalized = email.toLowerCase().trim();
+    if (normalized === SUPER_ADMIN_EMAIL.toLowerCase()) {
+      return this.getAdminWhitelist();
+    }
+    const updated = this.getAdminWhitelist().filter((e) => e.email.toLowerCase() !== normalized);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_WHITELIST, JSON.stringify(updated));
+    return updated;
+  }
+
+  static getAnnouncementsForClass(classId: string): Announcement[] {
+    const data = localStorage.getItem(this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS, classId));
+    const list: Announcement[] = data ? JSON.parse(data) : DEFAULT_ANNOUNCEMENTS;
+    if (!Array.isArray(list)) return [];
+    return [...list].sort((a, b) => {
+      const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
+      if (pinDiff !== 0) return pinDiff;
+      return (b.id || '').localeCompare(a.id || '');
+    });
+  }
+
+  static deleteAnnouncementForClass(classId: string, id: string): void {
+    const list = this.getAnnouncementsForClass(classId).filter((a) => a.id !== id);
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS, classId), JSON.stringify(list));
+    if (this.isDefaultCloudClass(classId)) {
+      void this.deleteDocSafe('announcements', id);
+    }
+  }
+
+  static toggleAnnouncementPinForClass(classId: string, id: string): Announcement[] {
+    const list = this.getAnnouncementsForClass(classId).map((a) =>
+      a.id === id ? { ...a, isPinned: !a.isPinned } : a
+    );
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS, classId), JSON.stringify(list));
+    if (this.isDefaultCloudClass(classId)) {
+      const target = list.find((a) => a.id === id);
+      if (target) {
+        void this.writeDocSafe('announcements', target.id, target);
+      }
+    }
+    return this.getAnnouncementsForClass(classId);
+  }
+
+  static broadcastSchoolAnnouncement(
+    title: string,
+    content: string,
+    category: Announcement['category'],
+    isPinned: boolean = true,
+    authorLabel: string = 'Ban Giám Hiệu (Admin)'
+  ): void {
+    const classes = this.getClasses();
+    const baseId = `ann_school_${Date.now()}`;
+    const newAnn: Announcement = {
+      id: baseId,
+      title: title.trim().slice(0, 200),
+      content: content.trim().slice(0, 5000),
+      category,
+      date: new Date().toLocaleDateString('vi-VN'),
+      author: authorLabel.trim().slice(0, 120),
+      isPinned,
+    };
+
+    classes.forEach((cls) => {
+      const existing = this.getAnnouncementsForClass(cls.id);
+      const updated = [newAnn, ...existing];
+      localStorage.setItem(this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS, cls.id), JSON.stringify(updated));
+      if (this.isDefaultCloudClass(cls.id)) {
+        void this.writeDocSafe('announcements', newAnn.id, newAnn);
+      }
+    });
+
+    this.recordAuditLog({
+      actorRole: 'ADMIN',
+      action: 'Phát thông báo toàn trường',
+      targetType: 'ANNOUNCEMENT',
+      targetLabel: newAnn.title,
+      summary: `Gửi thông báo cấp quản trị tới ${classes.length} lớp học${isPinned ? ' (Đã ghim)' : ''}`,
+      classIdOverride: DEFAULT_CLASS_ID,
+    });
+  }
+
+  static updateClassDetails(
+    classId: string,
+    updates: {
+      className: string;
+      schoolYear: string;
+      teacherName: string;
+      teacherCode: string;
+      subject: string;
+      phone: string;
+      password: string;
+    }
+  ): ClassRoomInfo[] {
+    const current = this.getTeacher(classId);
+    const updatedTeacher: TeacherInfo = {
+      ...current,
+      className: updates.className.trim().slice(0, 64) || current.className,
+      schoolYear: updates.schoolYear.trim().slice(0, 32) || current.schoolYear,
+      name: updates.teacherName.trim().slice(0, 120) || current.name,
+      code: updates.teacherCode.trim().slice(0, 32) || current.code,
+      subject: updates.subject.trim().slice(0, 120) || current.subject,
+      phone: updates.phone.trim().slice(0, 32) || current.phone,
+      password: updates.password.trim().slice(0, 64) || current.password || '123',
+    };
+    this.saveTeacher(updatedTeacher, classId);
+    this.recordAuditLog({
+      actorRole: 'ADMIN',
+      action: 'Cập nhật lớp & GVCN',
+      targetType: 'CLASS_ADMIN',
+      targetLabel: updatedTeacher.className,
+      summary: `Admin điều chỉnh thông tin lớp ${updatedTeacher.className} — GVCN: ${updatedTeacher.name} (${updatedTeacher.code})`,
+      classIdOverride: classId,
+    });
+    return this.getClasses();
+  }
+
+  static deleteClass(classId: string): ClassRoomInfo[] {
+    const classes = this.getClasses();
+    if (classes.length <= 1) {
+      return classes;
+    }
+
+    const students = this.getStudentsForClass(classId);
+    students.forEach((s) => {
+      localStorage.removeItem(this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${s.id}`, classId));
+      for (let w = 1; w <= 52; w++) {
+        localStorage.removeItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${s.id}_${w}`, classId));
+      }
+    });
+    for (let w = 1; w <= 52; w++) {
+      localStorage.removeItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_SCHEDULES}_${w}`, classId));
+    }
+    localStorage.removeItem(this.scopedKey(STORAGE_KEYS.TEACHER, classId));
+    localStorage.removeItem(this.scopedKey(STORAGE_KEYS.SUBJECT_TEACHERS, classId));
+    localStorage.removeItem(this.scopedKey(STORAGE_KEYS.STUDENTS, classId));
+    localStorage.removeItem(this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS, classId));
+    localStorage.removeItem(this.scopedKey(STORAGE_KEYS.AUDIT_LOGS, classId));
+
+    const remaining = classes.filter((c) => c.id !== classId);
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(remaining));
+    if (this.getActiveClassId() === classId && remaining[0]) {
+      this.setActiveClassId(remaining[0].id);
+    }
+    return remaining;
+  }
+
+  static resetPasswordsForClass(
+    classId: string,
+    targets: { teacher?: boolean; subjectTeachers?: boolean; parents?: boolean },
+    defaultPassword: string = '123'
+  ): void {
+    const cleanPass = defaultPassword.trim().slice(0, 64) || '123';
+    const classTeacher = this.getTeacher(classId);
+    const actions: string[] = [];
+
+    if (targets.teacher) {
+      this.saveTeacher({ ...classTeacher, password: cleanPass }, classId);
+      actions.push('GVCN');
+    }
+
+    if (targets.subjectTeachers) {
+      const updatedST = this.getSubjectTeachersForClass(classId).map((st) => ({
+        ...st,
+        password: cleanPass,
+      }));
+      this.saveSubjectTeachersForClass(classId, updatedST);
+      actions.push('GV Bộ môn');
+    }
+
+    if (targets.parents) {
+      const updatedStudents = this.getStudentsForClass(classId).map((s) => ({
+        ...s,
+        parentPassword: cleanPass,
+      }));
+      localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, classId), JSON.stringify(updatedStudents));
+      if (this.isDefaultCloudClass(classId)) {
+        updatedStudents.forEach((student) => {
+          void this.writeDocSafe('students', student.id, student);
+        });
+      }
+      actions.push('Phụ huynh');
+    }
+
+    if (actions.length > 0) {
+      this.recordAuditLog({
+        actorRole: 'ADMIN',
+        action: 'Đặt lại mật khẩu hàng loạt',
+        targetType: 'CLASS_ADMIN',
+        targetLabel: classTeacher.className,
+        summary: `Đặt lại mật khẩu (${actions.join(', ')}) về "${cleanPass}" cho lớp ${classTeacher.className}`,
+        classIdOverride: classId,
+      });
+    }
+  }
+
+  static transferStudentBetweenClasses(
+    studentId: string,
+    fromClassId: string,
+    toClassId: string
+  ): Student | null {
+    if (fromClassId === toClassId) return null;
+    const sourceStudents = this.getStudentsForClass(fromClassId);
+    const targetStudents = this.getStudentsForClass(toClassId);
+    const student = sourceStudents.find((s) => s.id === studentId);
+    if (!student) return null;
+
+    // Generate non-conflicting id in target class
+    let newId = student.id;
+    let idx = targetStudents.length + 1;
+    while (targetStudents.some((s) => s.id === newId)) {
+      newId = `hs${String(idx).padStart(2, '0')}`;
+      idx += 1;
+    }
+
+    const movedStudent: Student = { ...student, id: newId };
+    const scores = this.getSubjectScoresForClass(fromClassId, studentId);
+    const reports: WeeklyReport[] = [];
+    for (let w = 1; w <= 52; w++) {
+      const raw = localStorage.getItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${studentId}_${w}`, fromClassId));
+      if (raw) {
+        try {
+          reports.push({ ...(JSON.parse(raw) as WeeklyReport), studentId: newId });
+        } catch {
+          // ignore malformed week
+        }
+      }
+    }
+
+    // Remove from source class
+    const nextSource = sourceStudents.filter((s) => s.id !== studentId);
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, fromClassId), JSON.stringify(nextSource));
+    localStorage.removeItem(this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${studentId}`, fromClassId));
+    for (let w = 1; w <= 52; w++) {
+      localStorage.removeItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${studentId}_${w}`, fromClassId));
+    }
+    if (this.isDefaultCloudClass(fromClassId)) {
+      void this.deleteDocSafe('students', studentId);
+      void this.deleteDocSafe('subject_scores', studentId);
+      void this.deleteStudentWeeklyReportsFromFirebase(studentId);
+    }
+
+    // Insert into destination class
+    const nextTarget = [...targetStudents, movedStudent];
+    localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, toClassId), JSON.stringify(nextTarget));
+    localStorage.setItem(
+      this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${newId}`, toClassId),
+      JSON.stringify(scores)
+    );
+    reports.forEach((rep) => {
+      localStorage.setItem(
+        this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${newId}_${rep.weekNumber}`, toClassId),
+        JSON.stringify(rep)
+      );
+      if (this.isDefaultCloudClass(toClassId)) {
+        void this.writeDocSafe('weekly_reports', `${newId}_w${rep.weekNumber}`, rep);
+      }
+    });
+    if (this.isDefaultCloudClass(toClassId)) {
+      void this.writeDocSafe('students', movedStudent.id, movedStudent);
+      void this.writeDocSafe('subject_scores', movedStudent.id, { studentId: movedStudent.id, scores });
+    }
+
+    const fromTeacher = this.getTeacher(fromClassId);
+    const toTeacher = this.getTeacher(toClassId);
+    this.recordAuditLog({
+      actorRole: 'ADMIN',
+      action: 'Chuyển lớp học sinh',
+      targetType: 'CLASS_ADMIN',
+      targetLabel: movedStudent.name,
+      summary: `Chuyển em ${movedStudent.name} (${movedStudent.studentCode}) từ ${fromTeacher.className} sang ${toTeacher.className}`,
+      classIdOverride: toClassId,
+    });
+
+    return movedStudent;
+  }
+
+  static exportAllSystemData(): string {
+    const classes = this.getClasses();
+    const classPayloads = classes.map((cls) => {
+      const students = this.getStudentsForClass(cls.id);
+      const subjectScores: Record<string, SubjectScore[]> = {};
+      const weeklyReports: Record<string, WeeklyReport[]> = {};
+      students.forEach((s) => {
+        subjectScores[s.id] = this.getSubjectScoresForClass(cls.id, s.id);
+        const studReports: WeeklyReport[] = [];
+        for (let w = 1; w <= 52; w++) {
+          const raw = localStorage.getItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${s.id}_${w}`, cls.id));
+          if (raw) {
+            try {
+              studReports.push(JSON.parse(raw) as WeeklyReport);
+            } catch {
+              // ignore
+            }
+          }
+        }
+        if (studReports.length > 0) {
+          weeklyReports[s.id] = studReports;
+        }
+      });
+
+      const weeklySchedules: Record<number, WeeklySchedule> = {};
+      for (let w = 1; w <= 52; w++) {
+        const rawSched = localStorage.getItem(this.scopedKey(`${STORAGE_KEYS.WEEKLY_SCHEDULES}_${w}`, cls.id));
+        if (rawSched) {
+          try {
+            weeklySchedules[w] = JSON.parse(rawSched) as WeeklySchedule;
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      return {
+        classInfo: cls,
+        teacher: this.getTeacher(cls.id),
+        subjectTeachers: this.getSubjectTeachersForClass(cls.id),
+        students,
+        announcements: this.getAnnouncementsForClass(cls.id),
+        auditLogs: this.getAuditLogsForClass(cls.id),
+        subjectScores,
+        weeklyReports,
+        weeklySchedules,
+      };
+    });
+
+    return JSON.stringify(
+      {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        activeClassId: this.getActiveClassId(),
+        adminWhitelist: this.getAdminWhitelist(),
+        classes: classPayloads,
+      },
+      null,
+      2
+    );
+  }
+
+  static importAllSystemData(jsonText: string): { classesCount: number; studentsCount: number } {
+    const parsed = JSON.parse(jsonText) as {
+      activeClassId?: string;
+      adminWhitelist?: AdminWhitelistEntry[];
+      classes?: Array<{
+        classInfo: ClassRoomInfo;
+        teacher: TeacherInfo;
+        subjectTeachers?: SubjectTeacherInfo[];
+        students: Student[];
+        announcements?: Announcement[];
+        auditLogs?: AuditLogEntry[];
+        subjectScores?: Record<string, SubjectScore[]>;
+        weeklyReports?: Record<string, WeeklyReport[]>;
+        weeklySchedules?: Record<string, WeeklySchedule>;
+      }>;
+    };
+
+    if (!parsed || !Array.isArray(parsed.classes) || parsed.classes.length === 0) {
+      throw new Error('File sao lưu không hợp lệ hoặc không có dữ liệu lớp học.');
+    }
+
+    localStorage.clear();
+    this.activeClassIdMemory = null;
+
+    if (Array.isArray(parsed.adminWhitelist)) {
+      localStorage.setItem(STORAGE_KEYS.ADMIN_WHITELIST, JSON.stringify(parsed.adminWhitelist));
+      this.getAdminWhitelist();
+    }
+
+    const classInfos: ClassRoomInfo[] = [];
+    let totalStudents = 0;
+
+    parsed.classes.forEach((item) => {
+      if (!item.classInfo || !item.teacher) return;
+      const cid = item.classInfo.id;
+      classInfos.push(item.classInfo);
+      localStorage.setItem(this.scopedKey(STORAGE_KEYS.TEACHER, cid), JSON.stringify(item.teacher));
+      localStorage.setItem(
+        this.scopedKey(STORAGE_KEYS.SUBJECT_TEACHERS, cid),
+        JSON.stringify(item.subjectTeachers || DEFAULT_SUBJECT_TEACHERS)
+      );
+      const studs = Array.isArray(item.students) ? item.students : [];
+      totalStudents += studs.length;
+      localStorage.setItem(this.scopedKey(STORAGE_KEYS.STUDENTS, cid), JSON.stringify(studs));
+      localStorage.setItem(
+        this.scopedKey(STORAGE_KEYS.ANNOUNCEMENTS, cid),
+        JSON.stringify(item.announcements || [])
+      );
+      localStorage.setItem(
+        this.scopedKey(STORAGE_KEYS.AUDIT_LOGS, cid),
+        JSON.stringify(item.auditLogs || [])
+      );
+
+      if (item.subjectScores) {
+        Object.entries(item.subjectScores).forEach(([sid, scores]) => {
+          localStorage.setItem(
+            this.scopedKey(`${STORAGE_KEYS.SUBJECT_SCORES}_${sid}`, cid),
+            JSON.stringify(scores)
+          );
+        });
+      }
+
+      if (item.weeklyReports) {
+        Object.entries(item.weeklyReports).forEach(([sid, reps]) => {
+          reps.forEach((rep) => {
+            localStorage.setItem(
+              this.scopedKey(`${STORAGE_KEYS.WEEKLY_REPORTS}_${sid}_${rep.weekNumber}`, cid),
+              JSON.stringify(rep)
+            );
+          });
+        });
+      }
+
+      if (item.weeklySchedules) {
+        Object.entries(item.weeklySchedules).forEach(([wk, sched]) => {
+          localStorage.setItem(
+            this.scopedKey(`${STORAGE_KEYS.WEEKLY_SCHEDULES}_${wk}`, cid),
+            JSON.stringify(sched)
+          );
+        });
+      }
+    });
+
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classInfos));
+    const targetActive =
+      parsed.activeClassId && classInfos.some((c) => c.id === parsed.activeClassId)
+        ? parsed.activeClassId
+        : classInfos[0]?.id || DEFAULT_CLASS_ID;
+    this.setActiveClassId(targetActive);
+
+    return {
+      classesCount: classInfos.length,
+      studentsCount: totalStudents,
+    };
+  }
+
   static resetToDefault(): void {
     localStorage.clear();
+    this.activeClassIdMemory = null;
   }
 }

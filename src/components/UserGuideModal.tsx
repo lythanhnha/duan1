@@ -35,7 +35,7 @@ export const UserGuideModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <BookOpen className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold tracking-tight">Hướng Dẫn Sử Dụng EduLink</h2>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight">Hướng Dẫn Sử Dụng D2KN Edu</h2>
               <p className="text-xs sm:text-sm text-indigo-100 mt-0.5">
                 Sổ liên lạc điện tử kết nối GVCN, GV Bộ Môn và Phụ huynh
               </p>
@@ -127,7 +127,7 @@ export const UserGuideModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                 <ol className="space-y-2 text-sm text-[#374151] list-decimal list-inside">
                   <li>
-                    Tại trang chủ EduLink, chọn trực tiếp vai trò của bạn trong 3 thẻ: <strong>Phụ Huynh Học Sinh</strong>, <strong>Giáo Viên Chủ Nhiệm</strong> hoặc <strong>Giáo Viên Bộ Môn</strong>.
+                    Tại trang chủ D2KN Edu, chọn trực tiếp vai trò của bạn trong 3 thẻ: <strong>Phụ Huynh Học Sinh</strong>, <strong>Giáo Viên Chủ Nhiệm</strong> hoặc <strong>Giáo Viên Bộ Môn</strong>.
                   </li>
                   <li>
                     Nhập <strong>mật khẩu riêng</strong> tương ứng để vào sổ liên lạc.
@@ -354,7 +354,7 @@ export const UserGuideModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
         {/* Footer */}
         <div className="shrink-0 bg-slate-50 border-t border-slate-100 px-5 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between gap-3">
-          <p className="text-xs sm:text-sm text-slate-500">EduLink · Sổ Liên Lạc Điện Tử Đồng Bộ Firebase</p>
+          <p className="text-xs sm:text-sm text-slate-500">D2KN Edu · Sổ Liên Lạc Điện Tử Đồng Bộ Firebase</p>
           <button
             type="button"
             onClick={onClose}

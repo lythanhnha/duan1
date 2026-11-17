@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, useMemo } from 'react';
 import {
   BookOpen,
   Users,
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Student, TeacherInfo, SubjectTeacherInfo, SubjectScore, WeeklyReport, WeakPointDetail } from '../types';
 import { DataService } from '../services/dataStorage';
+import { UnsavedChangesModal, UnsavedGuardHandle } from './UnsavedChangesModal';
 
 interface Props {
   teacher: TeacherInfo;
@@ -30,9 +31,26 @@ interface Props {
   initialSubject?: string;
   subjectTeachers?: SubjectTeacherInfo[];
   dataVersion?: number;
+  guardRef?: React.RefObject<UnsavedGuardHandle | null>;
   onRefreshStudents?: () => void;
   onRefreshSubjectTeachers?: () => void;
 }
+
+const areNumArraysEqual = (a: number[] = [], b: number[] = []) =>
+  a.length === b.length && a.every((val, i) => val === b[i]);
+
+const isSubjectScoreModified = (draft?: SubjectScore, saved?: SubjectScore): boolean => {
+  if (!draft || !saved) return false;
+  return (
+    !areNumArraysEqual(draft.oralScores, saved.oralScores) ||
+    !areNumArraysEqual(draft.scores15m, saved.scores15m) ||
+    !areNumArraysEqual(draft.scores45m, saved.scores45m) ||
+    (draft.midtermScore ?? null) !== (saved.midtermScore ?? null) ||
+    (draft.finalScore ?? null) !== (saved.finalScore ?? null) ||
+    (draft.teacherRemark || '') !== (saved.teacherRemark || '') ||
+    Boolean(draft.isNeedingImprovement) !== Boolean(saved.isNeedingImprovement)
+  );
+};
 
 export const SubjectTeacherDashboard: React.FC<Props> = ({
   teacher,
@@ -40,6 +58,7 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
   initialSubject = 'Ngữ Văn',
   subjectTeachers: subjectTeachersProp,
   dataVersion,
+  guardRef,
   onRefreshStudents,
   onRefreshSubjectTeachers,
 }) => {
@@ -64,8 +83,15 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
   // Search filter
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Draft state for each student's subject score
+  // Draft state & saved snapshot for each student's subject score
   const [scoresMap, setScoresMap] = useState<Record<string, SubjectScore>>({});
+  const [savedScoresMap, setSavedScoresMap] = useState<Record<string, SubjectScore>>({});
+  const savedScoresMapRef = useRef<Record<string, SubjectScore>>({});
+
+  const updateSavedScoresMap = (next: Record<string, SubjectScore>) => {
+    savedScoresMapRef.current = next;
+    setSavedScoresMap(next);
+  };
 
   // Weak point draft state
   const [newWeakDay, setNewWeakDay] = useState('Thứ 2');
@@ -80,6 +106,14 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
   const [showPasswords, setShowPasswords] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  // Pending navigation confirmation modal
+  const [pendingAction, setPendingAction] = useState<{
+    message: string;
+    onSave: () => boolean | void;
+    onDiscard: () => void;
+    onProceed: () => void;
+  } | null>(null);
 
   // Keep subject teachers list synced with prop / Firestore updates
   useEffect(() => {
@@ -99,7 +133,7 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
   }, [selectedSubject, teachersList]);
 
   // Load subject scores for all students for the current subject
-  const loadAllSubjectScores = () => {
+  const buildScoresMapFromStorage = () => {
     const map: Record<string, SubjectScore> = {};
     students.forEach(st => {
       const allScores = DataService.getSubjectScores(st.id);
@@ -116,17 +150,53 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
           isNeedingImprovement: false,
         };
       } else {
-        // Ensure teacherName is synced
-        subjectScore.teacherName = activeSubjectTeacher.name;
+        subjectScore = {
+          ...subjectScore,
+          oralScores: [...(subjectScore.oralScores || [])],
+          scores15m: [...(subjectScore.scores15m || [])],
+          scores45m: [...(subjectScore.scores45m || [])],
+          teacherName: activeSubjectTeacher.name,
+        };
       }
       map[st.id] = subjectScore;
     });
-    setScoresMap(map);
+    return map;
   };
 
   useEffect(() => {
-    loadAllSubjectScores();
-  }, [selectedSubject, students, dataVersion]);
+    const freshMap = buildScoresMapFromStorage();
+    updateSavedScoresMap(freshMap);
+    setScoresMap(freshMap);
+  }, [selectedSubject]);
+
+  useEffect(() => {
+    const prevSaved = savedScoresMapRef.current;
+    const freshMap = buildScoresMapFromStorage();
+    updateSavedScoresMap(freshMap);
+    setScoresMap((prev) => {
+      const next: Record<string, SubjectScore> = {};
+      students.forEach((st) => {
+        if (prev[st.id] && isSubjectScoreModified(prev[st.id], prevSaved[st.id])) {
+          next[st.id] = prev[st.id];
+        } else {
+          next[st.id] = freshMap[st.id];
+        }
+      });
+      return next;
+    });
+    setSelectedStudentId((prev) => {
+      if (students.length === 0) return prev;
+      return students.some((st) => st.id === prev) ? prev : students[0].id;
+    });
+  }, [students, dataVersion]);
+
+  const dirtyStudentIds = useMemo(
+    () => students.filter((st) => isSubjectScoreModified(scoresMap[st.id], savedScoresMap[st.id])).map((st) => st.id),
+    [students, scoresMap, savedScoresMap]
+  );
+
+  const isWeakNoteDirty = newWeakReason.trim().length > 0;
+  const hasUnsavedChanges = dirtyStudentIds.length > 0 || isWeakNoteDirty;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -188,6 +258,7 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
 
     const stamped = DataService.saveSingleSubjectScore(studentId, scoreObj);
     setScoresMap((prev) => ({ ...prev, [studentId]: stamped }));
+    updateSavedScoresMap({ ...savedScoresMapRef.current, [studentId]: stamped });
     const student = students.find(s => s.id === studentId);
     DataService.recordAuditLog({
       actorRole: 'SUBJECT_TEACHER',
@@ -210,6 +281,7 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
       }
     });
     setScoresMap(updatedMap);
+    updateSavedScoresMap(updatedMap);
     DataService.recordAuditLog({
       actorRole: 'SUBJECT_TEACHER',
       action: 'BATCH_UPDATE_SCORES',
@@ -226,10 +298,10 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
   const currentDaySchedule = currentSchedule.days.find(d => d.dayName === newWeakDay);
   const availablePeriods = currentDaySchedule?.periods.filter(p => p.subject === selectedSubject) || currentDaySchedule?.periods || [];
 
-  const handleAddWeakNote = () => {
+  const handleAddWeakNote = (): boolean => {
     if (!newWeakReason.trim()) {
       showToast('Vui lòng nhập lý do/nội dung nhắc nhở học sinh!');
-      return;
+      return false;
     }
 
     const safeIndex = selectedPeriodIndex < availablePeriods.length ? selectedPeriodIndex : 0;
@@ -262,6 +334,69 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
     });
     setNewWeakReason('');
     showToast(`Đã ghi nhận tiết học cần lưu ý môn ${selectedSubject} cho em ${st?.name || ''}!`);
+    return true;
+  };
+
+  const saveAllPendingChanges = () => {
+    if (dirtyStudentIds.length > 0) {
+      handleSaveAll();
+    }
+    if (isWeakNoteDirty) {
+      handleAddWeakNote();
+    }
+  };
+
+  const getUnsavedSummary = () => {
+    const parts: string[] = [];
+    if (dirtyStudentIds.length > 0) {
+      parts.push(`điểm / lời nhận xét môn ${selectedSubject} (${dirtyStudentIds.length} học sinh)`);
+    }
+    if (isWeakNoteDirty) {
+      parts.push('ghi nhận tiết học cần lưu ý');
+    }
+    return `Bạn đã nhập ${parts.join(' và ')} nhưng chưa bấm Lưu. Bạn có muốn lưu lại trước khi rời khỏi không?`;
+  };
+
+  useImperativeHandle(guardRef, () => ({
+    hasUnsavedChanges: () => hasUnsavedChanges,
+    saveUnsavedChanges: () => {
+      saveAllPendingChanges();
+      return true;
+    },
+    getUnsavedDescription: () => getUnsavedSummary(),
+  }));
+
+  const handleSubjectSwitchAttempt = (nextSubject: string) => {
+    if (nextSubject === selectedSubject) return;
+    if (hasUnsavedChanges) {
+      setPendingAction({
+        message: getUnsavedSummary(),
+        onSave: () => {
+          saveAllPendingChanges();
+          return true;
+        },
+        onDiscard: () => {
+          setScoresMap(savedScoresMap);
+          setNewWeakReason('');
+        },
+        onProceed: () => setSelectedSubject(nextSubject),
+      });
+      return;
+    }
+    setSelectedSubject(nextSubject);
+  };
+
+  const handleWeakStudentOrWeekAttempt = (proceedFn: () => void) => {
+    if (isWeakNoteDirty) {
+      setPendingAction({
+        message: 'Bạn đã nhập nội dung nhắc nhở tiết học nhưng chưa bấm "Ghi Nhận Vào Báo Cáo". Bạn có muốn lưu lại trước khi thay đổi không?',
+        onSave: () => handleAddWeakNote(),
+        onDiscard: () => setNewWeakReason(''),
+        onProceed: proceedFn,
+      });
+      return;
+    }
+    proceedFn();
   };
 
   const filteredStudents = students.filter(s => 
@@ -271,6 +406,28 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Unsaved Changes Modal */}
+      <UnsavedChangesModal
+        isOpen={pendingAction !== null}
+        title="Xác nhận lưu thay đổi"
+        message={pendingAction?.message}
+        onSaveAndContinue={() => {
+          if (!pendingAction) return;
+          const ok = pendingAction.onSave();
+          const proceed = pendingAction.onProceed;
+          setPendingAction(null);
+          if (ok !== false) proceed();
+        }}
+        onDiscardAndContinue={() => {
+          if (!pendingAction) return;
+          pendingAction.onDiscard();
+          const proceed = pendingAction.onProceed;
+          setPendingAction(null);
+          proceed();
+        }}
+        onCancel={() => setPendingAction(null)}
+      />
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center space-x-3 animate-in fade-in slide-in-from-bottom-5">
@@ -308,7 +465,7 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
               </label>
               <select
                 value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
+                onChange={(e) => handleSubjectSwitchAttempt(e.target.value)}
                 className="w-full bg-white text-slate-900 font-extrabold text-sm p-2.5 rounded-xl border-none shadow-md focus:ring-2 focus:ring-indigo-400 cursor-pointer"
               >
                 {teachersList.map((st) => (
@@ -395,7 +552,14 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {dirtyStudentIds.length > 0 && (
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>{dirtyStudentIds.length} học sinh chưa lưu</span>
+              </span>
+            )}
+
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -459,7 +623,13 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-3">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {dirtyStudentIds.includes(student.id) && (
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-2xs font-bold">
+                        Chưa lưu
+                      </span>
+                    )}
+
                     <label className="flex items-center space-x-2 text-xs font-bold text-amber-900 bg-amber-100/80 px-3 py-1.5 rounded-xl cursor-pointer border border-amber-200">
                       <input
                         type="checkbox"
@@ -472,9 +642,13 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
 
                     <button
                       onClick={() => handleSaveStudentScore(student.id)}
-                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-colors shadow-2xs flex items-center space-x-1.5 cursor-pointer"
+                      className={`px-3.5 py-1.5 text-white font-bold text-xs rounded-xl transition-colors shadow-2xs flex items-center space-x-1.5 cursor-pointer ${
+                        dirtyStudentIds.includes(student.id)
+                          ? 'bg-indigo-600 hover:bg-indigo-700'
+                          : 'bg-slate-900 hover:bg-slate-800'
+                      }`}
                     >
-                      <Save className="w-3.5 h-3.5 text-indigo-300" />
+                      <Save className="w-3.5 h-3.5 text-indigo-200" />
                       <span>Lưu Nhận Xét</span>
                     </button>
                   </div>
@@ -635,7 +809,10 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">Chọn Học Sinh</label>
               <select
                 value={selectedStudentId}
-                onChange={(e) => setSelectedStudentId(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  handleWeakStudentOrWeekAttempt(() => setSelectedStudentId(val));
+                }}
                 className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500"
               >
                 {students.map(s => (
@@ -651,7 +828,10 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">Chọn Tuần Học</label>
               <select
                 value={selectedWeek}
-                onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  handleWeakStudentOrWeekAttempt(() => setSelectedWeek(val));
+                }}
                 className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500"
               >
                 {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
@@ -707,8 +887,34 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
 
       {/* CHANGE PASSWORD MODAL */}
       {isChangePasswordOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => {
+            if ((currentPassword || newPassword || confirmPassword) && !passwordSuccess) {
+              setPendingAction({
+                message: 'Bạn đang nhập thông tin đổi mật khẩu nhưng chưa cập nhật. Bạn có muốn đóng hộp thoại không?',
+                onSave: () => {
+                  const form = document.getElementById('subject-teacher-pass-form') as HTMLFormElement | null;
+                  form?.requestSubmit();
+                  return false;
+                },
+                onDiscard: () => {
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError('');
+                },
+                onProceed: () => setIsChangePasswordOpen(false),
+              });
+              return;
+            }
+            setIsChangePasswordOpen(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2.5">
                 <div className="p-2.5 bg-purple-50 text-purple-600 rounded-2xl border border-purple-100">
@@ -731,6 +937,7 @@ export const SubjectTeacherDashboard: React.FC<Props> = ({
             </div>
 
             <form
+              id="subject-teacher-pass-form"
               onSubmit={(e) => {
                 e.preventDefault();
                 setPasswordError('');

@@ -179,7 +179,7 @@ service cloud.firestore {
       allow list: if request.time != null;
       allow create: if isValidId(studentId) && isValidStudent(incoming()) && incoming().id == studentId;
       allow update: if isValidId(studentId) && isValidStudent(incoming()) && incoming().id == existing().id;
-      allow delete: if false;
+      allow delete: if isValidId(studentId);
     }
 
     match /subject_scores/{studentId} {
@@ -187,7 +187,7 @@ service cloud.firestore {
       allow list: if request.time != null;
       allow create: if isValidId(studentId) && isValidSubjectScoreRecord(incoming()) && incoming().studentId == studentId;
       allow update: if isValidId(studentId) && isValidSubjectScoreRecord(incoming()) && incoming().studentId == existing().studentId;
-      allow delete: if false;
+      allow delete: if isValidId(studentId);
     }
 
     match /weekly_reports/{reportId} {
@@ -195,7 +195,7 @@ service cloud.firestore {
       allow list: if request.time != null;
       allow create: if isValidId(reportId) && isValidWeeklyReport(incoming());
       allow update: if isValidId(reportId) && isValidWeeklyReport(incoming()) && incoming().studentId == existing().studentId && incoming().weekNumber == existing().weekNumber;
-      allow delete: if false;
+      allow delete: if isValidId(reportId);
     }
 
     match /weekly_schedules/{scheduleId} {
